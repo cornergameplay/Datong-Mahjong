@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大同麻將戰績紀錄</title>
+    <title>大同麻將戰績系統</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 ECharts 與 ECharts GL -->
@@ -150,19 +150,30 @@
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                            <p class="text-muted small mb-0">💡 點擊圖例開關玩家(系統會記憶)。游標停在圖上可看當局即時排名！</p>
+                            <p class="text-muted small mb-0">💡 圖例開關點擊記憶。懸浮查看即時排名！</p>
                             <div class="d-flex gap-2 align-items-center flex-wrap">
                                 <button class="btn btn-outline-cyan btn-sm text-nowrap" id="playAnimBtn" onclick="renderChart(true)">▶️ 播放動畫</button>
-                                <select id="xAxisInterval" class="form-select form-select-sm" style="width: auto;" onchange="renderChart(false)">
-                                    <option value="auto">X軸間距: 自動</option>
-                                    <option value="0">顯示每 1 局</option>
-                                    <option value="1">顯示每 2 局</option>
-                                    <option value="2">顯示每 3 局</option>
-                                    <option value="3">顯示每 4 局</option>
-                                    <option value="4">顯示每 5 局</option>
-                                    <option value="9">顯示每 10 局</option>
+                                
+                                <select id="animSpeedSelect" class="form-select form-select-sm" style="width: auto; background-color: var(--bg-dark); color: var(--text-light); border-color: var(--border-color);" onchange="handleSpeedChange()">
+                                    <option value="auto">速度: 自動</option>
+                                    <option value="800">速度: 慢</option>
+                                    <option value="300">速度: 中</option>
+                                    <option value="100">速度: 快</option>
                                 </select>
-                                <button class="btn btn-outline-lime btn-sm text-nowrap" id="toggleChartBtn" onclick="toggleChartMode()">切換為 3D 視角</button>
+
+                                <select id="xAxisInterval" class="form-select form-select-sm" style="width: auto; background-color: var(--bg-dark); color: var(--text-light); border-color: var(--border-color);" onchange="renderChart(false)">
+                                    <option value="auto">X軸: 自動</option>
+                                    <option value="0">X軸: 1局</option>
+                                    <option value="1">X軸: 2局</option>
+                                    <option value="4">X軸: 5局</option>
+                                    <option value="9">X軸: 10局</option>
+                                </select>
+                                
+                                <select id="chartModeSelect" class="form-select form-select-sm fw-bold" style="width: auto; background-color: var(--bg-dark); color: var(--lime-green); border-color: var(--lime-green);" onchange="renderChart(false)">
+                                    <option value="2d">📈 2D 折線圖</option>
+                                    <option value="race">🏁 動態賽跑圖</option>
+                                    <option value="3d">🧊 3D 折線圖</option>
+                                </select>
                             </div>
                         </div>
                         <div class="chart-container" id="myChart"></div>
@@ -281,7 +292,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // === 更新為您最新提供的 API 網址 ===
     const API_URL = "https://script.google.com/macros/s/AKfycbz2aO6gBSraGUvhDF5VdAqEyerf-briexsVlOnjb5QhM5GUXvP34hgb6DQHY_nKrtyC9w/exec"; 
     const CUTOFF_DATE = new Date("2025-11-01T00:00:00"); 
 
@@ -292,7 +302,7 @@
     let availablePlayersForDropdown = [];
     let currentSortBy = 'rate';
     let myChart = null;
-    let is3DMode = false;
+    let lastChartMode = null; 
     let chartLegendState = {}; 
     let animInterval = null; 
     let hasPlayedInitialAnim = false; 
@@ -369,10 +379,26 @@
 
         let ascRecords = sortRecordsCore([...allData.records], true);
         
+        // 分別紀錄對戰與雜支的計數器
+        let matchCount = 0;
+        let miscCount = 0;
+
         ascRecords.forEach(record => {
             let roundPlayerSum = 0; 
             let recordDateObj = new Date(record.date.substring(0, 10));
             let isRecent = recordDateObj >= CUTOFF_DATE; 
+            
+            // 判斷此局是否為對戰紀錄
+            let isMatch = Object.values(record.scores).some(v => v !== null && v !== "");
+            
+            // ★ 動態賦予顯示ID (不影響後端)
+            if (isMatch) {
+                matchCount++;
+                record.displayId = matchCount;
+            } else {
+                miscCount++;
+                record.displayId = "雜支" + miscCount;
+            }
 
             allData.players.forEach(p => {
                 let score = record.scores[p];
@@ -424,7 +450,7 @@
 
     function renderHistory() {
         let thead = `<thead><tr>
-            <th style="width: 60px; min-width: 60px;">局數</th>
+            <th style="width: 65px; min-width: 65px;">局數</th>
             <th style="width: 110px; min-width: 110px;">日期</th>
             <th style="min-width:120px;">備註</th>
             <th style="min-width:80px; color: var(--cyan-glow) !important;">雜支</th>
@@ -442,7 +468,10 @@
         
         descRecords.forEach((r) => {
             let miscDisplay = r.misc === 0 || r.misc === null ? "-" : r.misc;
-            tbody += `<tr><td>${r.id}</td><td style="color: var(--text-muted) !important;">${r.date.substring(0,10)}</td>
+            let isMiscType = typeof r.displayId === 'string' && r.displayId.includes("雜支");
+            let idColor = isMiscType ? `color: var(--cyan-glow) !important; font-size: 0.9em;` : ``;
+            
+            tbody += `<tr><td style="${idColor}">${r.displayId}</td><td style="color: var(--text-muted) !important;">${r.date.substring(0,10)}</td>
                 <td style="color: var(--text-muted) !important;">${r.memo}</td>
                 <td style="color: var(--cyan-glow) !important;">${miscDisplay}</td>
                 <td class="fw-bold">${formatMoney(r.playersCumulativeTotal)}</td>`;
@@ -487,17 +516,23 @@
         document.getElementById('leaderboardTableBody').innerHTML = html;
     }
 
-    function toggleChartMode() {
-        is3DMode = !is3DMode;
-        document.getElementById('toggleChartBtn').innerText = is3DMode ? "切換為 2D 視角" : "切換為 3D 視角";
-        renderChart(false);
+    function handleSpeedChange() {
+        if (animInterval) {
+            renderChart(true); 
+        }
     }
 
     function renderChart(isPlayback = false) {
+        let mode = document.getElementById('chartModeSelect').value;
         let chartDom = document.getElementById('myChart');
-        if(myChart) myChart.dispose(); 
-        myChart = echarts.init(chartDom);
-        if(animInterval) clearInterval(animInterval);
+        
+        if (!myChart || lastChartMode !== mode) {
+            if(myChart) myChart.dispose(); 
+            myChart = echarts.init(chartDom);
+            lastChartMode = mode;
+        }
+        
+        if(animInterval) { clearInterval(animInterval); animInterval = null; }
         
         let labels = ["起始"];
         let matchOnlyRecords = allData.sortedAscRecords.filter(r => Object.values(r.scores).some(v => v !== null && v !== ""));
@@ -505,10 +540,13 @@
         let totalSteps = labels.length;
 
         let activePlayers = sortedPlayers.filter(p => playerStats[p].allTimeAmount > 0 || playerStats[p].recentGames > 0);
+        let currentActivePlayers = activePlayers.filter(p => chartLegendState[p] !== false);
+
         let intervalVal = document.getElementById('xAxisInterval').value;
         let axisInterval = intervalVal === 'auto' ? 'auto' : parseInt(intervalVal);
         
-        let speed = Math.max(100, Math.min(300, 3000 / totalSteps)); 
+        let speedVal = document.getElementById('animSpeedSelect').value;
+        let speed = speedVal === 'auto' ? Math.max(100, Math.min(300, 3000 / totalSteps)) : parseInt(speedVal);
         
         let yAxisMinMaxRule = {
             max: function (value) { let t = Math.ceil(value.max / 6000) * 6000; return t === 0 ? 6000 : t; },
@@ -523,11 +561,54 @@
             animationDurationUpdate: isPlayback ? speed : 800,
             animationEasing: 'linear',
             animationEasingUpdate: 'linear',
-            legend: { data: activePlayers, selected: chartLegendState, textStyle: { color: '#CBD5E1' }, top: 0 }
+            legend: { data: activePlayers, selected: chartLegendState, textStyle: { color: '#CBD5E1' }, top: 0, type: 'scroll' }
         };
 
         function getSeriesData(step) {
-            if (!is3DMode) {
+            if (mode === 'race') {
+                option.grid = { left: '3%', right: '12%', bottom: '5%', top: '15%', containLabel: true };
+                option.xAxis = { type: 'value', axisLabel: { color: '#CBD5E1' }, splitLine: { lineStyle: { color: '#1E293B', type: 'dashed' } } };
+                
+                option.yAxis = { 
+                    type: 'category', 
+                    inverse: true, 
+                    data: currentActivePlayers, 
+                    axisLabel: { color: '#F8FAFC', fontSize: 13, fontWeight: 'bold' },
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    animationDuration: 300,
+                    animationDurationUpdate: 300
+                };
+                
+                option.title = {
+                    text: '局數: ' + labels[step - 1],
+                    right: '5%',
+                    bottom: '10%',
+                    textStyle: { color: 'rgba(217, 255, 0, 0.4)', fontSize: 40, fontWeight: 'bold' }
+                };
+                
+                option.tooltip = { show: false };
+
+                let raceData = currentActivePlayers.map((p) => {
+                    let originalIndex = sortedPlayers.indexOf(p);
+                    return {
+                        value: playerStats[p].historySum[step - 1],
+                        itemStyle: { color: colorPalette[originalIndex % colorPalette.length] }
+                    };
+                });
+
+                return [{
+                    realtimeSort: true,
+                    type: 'bar',
+                    data: raceData,
+                    label: {
+                        show: true, position: 'right', valueAnimation: true,
+                        color: '#F8FAFC', fontSize: 14, fontWeight: 'bold'
+                    }
+                }];
+            }
+            else if (mode === '2d') {
+                option.title = { show: false };
                 option.tooltip = {
                     trigger: 'axis',
                     confine: true,         
@@ -538,7 +619,6 @@
                     formatter: function (params) {
                         let sortedParams = [...params].sort((a, b) => b.data - a.data);
                         let html = `<div style="font-weight:bold; border-bottom:1px solid #1E293B; padding-bottom:6px; margin-bottom:6px;">局數：${sortedParams[0].axisValue} (即時排名)</div>`;
-                        
                         sortedParams.forEach(p => {
                             html += `<div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
                                 <span>${p.marker} ${p.seriesName}</span>
@@ -548,20 +628,22 @@
                         return html;
                     }
                 };
-
                 option.grid = { left: '3%', right: '4%', bottom: '3%', containLabel: true };
                 option.xAxis = { type: 'category', boundaryGap: false, data: labels, axisLabel: { color: '#CBD5E1', interval: axisInterval }, axisLine: { lineStyle: { color: '#1E293B' } } };
                 option.yAxis = { type: 'value', interval: 6000, max: yAxisMinMaxRule.max, min: yAxisMinMaxRule.min, axisLabel: { color: '#CBD5E1' }, splitLine: { lineStyle: { color: '#1E293B', type: 'dashed' } } };
                 
-                return activePlayers.map((p, index) => {
+                return currentActivePlayers.map((p) => {
+                    let originalIndex = sortedPlayers.indexOf(p);
                     return {
                         name: p, type: 'line', smooth: false, showSymbol: false,
-                        lineStyle: { width: 3, shadowColor: colorPalette[index % colorPalette.length], shadowBlur: 10 },
-                        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: colorPalette[index % colorPalette.length] }, { offset: 1, color: 'rgba(0,0,0,0)' }]), opacity: 0.1 },
+                        lineStyle: { width: 3, shadowColor: colorPalette[originalIndex % colorPalette.length], shadowBlur: 10 },
+                        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: colorPalette[originalIndex % colorPalette.length] }, { offset: 1, color: 'rgba(0,0,0,0)' }]), opacity: 0.1 },
                         data: playerStats[p].historySum.slice(0, step)
                     };
                 });
-            } else {
+            } 
+            else {
+                option.title = { show: false };
                 option.tooltip = { 
                     backgroundColor: '#131B2F', 
                     borderColor: '#D9FF00', 
@@ -571,21 +653,22 @@
                 };
                 option.grid3D = {
                     boxWidth: 200, boxDepth: 120, boxHeight: 80,
-                    viewControl: { projection: 'perspective', autoRotate: true, autoRotateSpeed: 10, distance: 250 },
+                    viewControl: { projection: 'perspective', autoRotate: false, distance: 250 },
                     axisLine: { lineStyle: { color: '#CBD5E1' } }, splitLine: { lineStyle: { color: '#1E293B' } }, axisPointer: { lineStyle: { color: '#D9FF00' } }
                 };
                 option.xAxis3D = { type: 'category', data: labels, name: '將數', nameTextStyle: { color: '#F8FAFC' }, axisLabel: { interval: axisInterval } };
-                option.yAxis3D = { type: 'category', data: activePlayers, name: '玩家', nameTextStyle: { color: '#F8FAFC' } };
+                option.yAxis3D = { type: 'category', data: currentActivePlayers, name: '玩家', nameTextStyle: { color: '#F8FAFC' } };
                 option.zAxis3D = { type: 'value', name: '金額', nameTextStyle: { color: '#F8FAFC' }, interval: 6000, max: yAxisMinMaxRule.max, min: yAxisMinMaxRule.min };
                 
-                return activePlayers.map((p, index) => {
+                return currentActivePlayers.map((p) => {
+                    let originalIndex = sortedPlayers.indexOf(p);
                     let pData = playerStats[p].historySum.slice(0, step).map((amount, roundIndex) => {
                         return [labels[roundIndex], p, amount];
                     });
                     return {
                         name: p, type: 'line3D', data: pData,
-                        lineStyle: { width: 4, color: colorPalette[index % colorPalette.length] },
-                        itemStyle: { color: colorPalette[index % colorPalette.length] }
+                        lineStyle: { width: 4, color: colorPalette[originalIndex % colorPalette.length] },
+                        itemStyle: { color: colorPalette[originalIndex % colorPalette.length] }
                     };
                 });
             }
@@ -597,11 +680,11 @@
             if(playBtn) { playBtn.disabled = true; playBtn.innerText = "⏳ 播放中..."; }
             let currentStep = 1; 
             option.series = getSeriesData(currentStep);
-            myChart.setOption(option);
+            myChart.setOption(option, true); 
             
             animInterval = setInterval(() => {
                 currentStep++;
-                myChart.setOption({ series: getSeriesData(currentStep) });
+                myChart.setOption({ series: getSeriesData(currentStep), title: option.title });
                 
                 if(currentStep >= totalSteps) {
                     clearInterval(animInterval);
@@ -612,12 +695,15 @@
 
         } else {
             option.series = getSeriesData(totalSteps);
-            myChart.setOption(option);
+            myChart.setOption(option, true);
             if(playBtn) { playBtn.disabled = false; playBtn.innerText = "▶️ 播放動畫"; }
         }
 
         myChart.on('legendselectchanged', function (params) {
             chartLegendState = params.selected;
+            if (mode === 'race') {
+                renderChart(false);
+            }
         });
     }
 
