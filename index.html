@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>大同麻將戰績紀錄</title>
+    <title>大同麻將戰績系統</title>
     <!-- 引入 Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 ECharts 與 ECharts GL -->
@@ -393,7 +393,6 @@
                 matchCount++;
                 record.displayId = matchCount;
 
-                // 只有「對戰紀錄」，才把分數推進玩家的走勢圖陣列 (historySum)
                 allData.players.forEach(p => {
                     let score = record.scores[p];
                     let lastSum = playerStats[p].historySum[playerStats[p].historySum.length - 1];
@@ -416,7 +415,6 @@
             } else {
                 miscCount++;
                 record.displayId = "雜支" + miscCount;
-                // 純雜支紀錄「絕對不推入走勢圖陣列」，徹底解決陣列錯位與吃資料的問題！
             }
 
             playerGrandTotal += roundPlayerSum;
@@ -533,9 +531,15 @@
         
         if(animInterval) { clearInterval(animInterval); animInterval = null; }
         
+        // ★ 建立局數與日期的對應陣列
         let labels = ["起始"];
+        let matchDates = [""];
         let matchOnlyRecords = allData.sortedAscRecords.filter(r => Object.values(r.scores).some(v => v !== null && v !== ""));
-        for(let i = 1; i <= matchOnlyRecords.length; i++) labels.push(i);
+        for(let i = 1; i <= matchOnlyRecords.length; i++) {
+            labels.push(i);
+            matchDates.push(matchOnlyRecords[i-1].date.substring(0, 10)); // 抓取日期
+        }
+        
         let totalSteps = labels.length;
 
         let activePlayers = sortedPlayers.filter(p => playerStats[p].allTimeAmount > 0 || playerStats[p].recentGames > 0);
@@ -565,7 +569,7 @@
 
         function getSeriesData(step) {
             if (mode === 'race') {
-                option.grid = { left: '3%', right: '12%', bottom: '5%', top: '15%', containLabel: true };
+                option.grid = { left: '3%', right: '15%', bottom: '5%', top: '15%', containLabel: true }; // 加寬 right 以容納文字
                 option.xAxis = { type: 'value', axisLabel: { color: '#CBD5E1' }, splitLine: { lineStyle: { color: '#1E293B', type: 'dashed' } } };
                 
                 option.yAxis = { 
@@ -580,11 +584,14 @@
                     animationDurationUpdate: 300
                 };
                 
+                // ★ 浮水印：加入日期顯示
+                let currentRoundStr = '局數: ' + labels[step - 1];
+                let dateStr = matchDates[step - 1] ? '  (' + matchDates[step - 1] + ')' : '';
                 option.title = {
-                    text: '局數: ' + labels[step - 1],
+                    text: currentRoundStr + dateStr,
                     right: '5%',
                     bottom: '10%',
-                    textStyle: { color: 'rgba(217, 255, 0, 0.4)', fontSize: 40, fontWeight: 'bold' }
+                    textStyle: { color: 'rgba(217, 255, 0, 0.4)', fontSize: 32, fontWeight: 'bold' } // 稍微調小避免太長
                 };
                 
                 option.tooltip = { show: false };
@@ -592,6 +599,7 @@
                 let raceData = currentActivePlayers.map((p) => {
                     let originalIndex = sortedPlayers.indexOf(p);
                     return {
+                        name: p, // ★ 必須加上 name 屬性，後面的 formatter 才抓得到
                         value: playerStats[p].historySum[step - 1],
                         itemStyle: { color: colorPalette[originalIndex % colorPalette.length] }
                     };
@@ -602,8 +610,14 @@
                     type: 'bar',
                     data: raceData,
                     label: {
-                        show: true, position: 'right', valueAnimation: true,
-                        color: '#F8FAFC', fontSize: 14, fontWeight: 'bold'
+                        show: true, 
+                        position: 'right', 
+                        valueAnimation: true,
+                        color: '#F8FAFC', 
+                        fontSize: 14, 
+                        fontWeight: 'bold',
+                        // ★ 長條圖標籤：格式化為「數值 玩家名稱」
+                        formatter: '{c}  {b}' 
                     }
                 }];
             }
@@ -618,7 +632,8 @@
                     textStyle: { color: '#F8FAFC' },
                     formatter: function (params) {
                         let sortedParams = [...params].sort((a, b) => b.data - a.data);
-                        let html = `<div style="font-weight:bold; border-bottom:1px solid #1E293B; padding-bottom:6px; margin-bottom:6px;">局數：${sortedParams[0].axisValue} (即時排名)</div>`;
+                        let dateText = matchDates[params[0].dataIndex] ? ` (${matchDates[params[0].dataIndex]})` : '';
+                        let html = `<div style="font-weight:bold; border-bottom:1px solid #1E293B; padding-bottom:6px; margin-bottom:6px;">局數：${sortedParams[0].axisValue}${dateText} (即時排名)</div>`;
                         sortedParams.forEach(p => {
                             html += `<div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
                                 <span>${p.marker} ${p.seriesName}</span>
