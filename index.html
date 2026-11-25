@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大同麻將戰績系統 V1.1.6</title>
+    <!-- 引入 Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入 ECharts 與 ECharts GL -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #070B19;       
+            --bg-card: #131B2F;       
+            --lime-green: #D9FF00;    
+            --lime-hover: #bceb00;
+            --cyan-glow: #00E5FF;
+            --text-light: #F8FAFC;    
+            --text-muted: #CBD5E1;    
+            --win-color: #FF4D4F;     
+            --lose-color: #00ff88;    
+            --border-color: #1E293B;  
+        }
+
+        body, .card, .modal-content { 
+            background-color: var(--bg-dark); 
+            color: var(--text-light) !important;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            overflow: hidden; 
+        }
+
+        .text-muted { color: var(--text-muted) !important; }
+
+        .navbar { background-color: var(--bg-dark) !important; border-bottom: 1px solid var(--border-color); }
+        .navbar-brand { font-weight: bold; color: var(--text-light) !important; }
+        
+        .btn-lime { background-color: var(--lime-green); color: #000 !important; font-weight: bold; border: none; }
+        .btn-lime:hover { background-color: var(--lime-hover); color: #000 !important; }
+        .btn-outline-lime { border: 1px solid var(--lime-green); color: var(--lime-green) !important; background: transparent; }
+        .btn-outline-lime:hover { background-color: var(--lime-green); color: #000 !important; }
+        
+        .btn-outline-cyan { border: 1px solid var(--cyan-glow); color: var(--cyan-glow) !important; background: transparent; }
+        .btn-outline-cyan:hover { background-color: var(--cyan-glow); color: #000 !important; }
+
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); }
+        .modal-content { background-color: var(--bg-card); color: var(--text-light) !important; border: 1px solid var(--lime-green); }
+        .modal-header { border-bottom: 1px solid var(--border-color); }
+        .modal-footer { border-top: 1px solid var(--border-color); }
+        
+        .form-control, .form-select, option { 
+            background-color: var(--bg-dark) !important; 
+            color: var(--text-light) !important; 
+            border: 1px solid var(--border-color);
+        }
+        .form-control:focus, .form-select:focus { 
+            background-color: var(--bg-dark) !important; 
+            color: var(--text-light) !important; 
+            border-color: var(--lime-green) !important; 
+            box-shadow: 0 0 0 0.25rem rgba(217, 255, 0, 0.25) !important; 
+        }
+        ::placeholder { color: #64748B !important; opacity: 1 !important; }
+
+        .win-text { color: var(--win-color) !important; font-weight: bold; } 
+        .lose-text { color: var(--lose-color) !important; } 
+        
+        .nav-tabs { border-bottom: 1px solid var(--border-color); }
+        .nav-tabs .nav-link { color: var(--text-muted); font-weight: 500; border: none; }
+        .nav-tabs .nav-link:hover { color: var(--text-light); }
+        .nav-tabs .nav-link.active { background-color: transparent !important; color: var(--lime-green) !important; border-bottom: 3px solid var(--lime-green) !important; font-weight: bold; }
+
+        .table-container { height: calc(100vh - 180px); overflow-x: auto; overflow-y: auto; }
+        
+        table, th, td { color: var(--text-light) !important; white-space: nowrap; border-collapse: separate; border-spacing: 0; }
+        .table-bordered > :not(caption) > * > * { border-color: var(--border-color) !important; }
+        
+        #historyTable thead tr:nth-child(1) th { position: sticky; top: 0; background-color: var(--bg-dark) !important; z-index: 3; border-bottom: 2px solid var(--lime-green); }
+        #historyTable thead tr:nth-child(2) th { position: sticky; top: var(--history-head, 41px); background-color: #0B1120 !important; z-index: 3; font-size: 0.95rem; }
+        
+        #historyTable th:nth-child(1), #historyTable td:nth-child(1) { position: sticky; left: 0; z-index: 2; }
+        #historyTable th:nth-child(2), #historyTable td:nth-child(2) { position: sticky; left: 60px; z-index: 2; box-shadow: 3px 0 10px rgba(0,0,0,0.8); }
+        
+        #historyTable thead tr:nth-child(1) th:nth-child(1), #historyTable thead tr:nth-child(1) th:nth-child(2) { z-index: 5; }
+        #historyTable thead tr:nth-child(2) th:nth-child(1) { position: sticky; left: 0; z-index: 5; box-shadow: 3px 0 10px rgba(0,0,0,0.8); }
+
+        #historyTable tbody tr:nth-of-type(odd) td { background-color: var(--bg-card) !important; }
+        #historyTable tbody tr:nth-of-type(even) td { background-color: var(--bg-dark) !important; }
+        #historyTable tbody tr:hover td { background-color: #1e293b !important; }
+
+        .leaderboard-container { height: calc(100vh - 180px); overflow-y: auto; }
+        .leaderboard-container thead th { position: sticky; top: 0; background-color: var(--bg-dark) !important; z-index: 2; border-bottom: 2px solid var(--lime-green); color: var(--text-light) !important; }
+        .leaderboard-container tbody tr:nth-of-type(odd) td { background-color: var(--bg-card) !important; color: var(--text-light) !important; }
+        .leaderboard-container tbody tr:nth-of-type(even) td { background-color: var(--bg-dark) !important; color: var(--text-light) !important; }
+        .sortable { cursor: pointer; user-select: none; }
+        .sortable:hover { color: var(--lime-green) !important; }
+
+        .chart-container { position: relative; height: calc(100vh - 270px); width: 100%; }
+        body { overflow: auto; }
+        .table-container,.leaderboard-container { height: min(65vh, calc(100dvh - 260px)); min-height: 220px; }
+        .chart-container { height: min(65vh, calc(100dvh - 320px)); min-height: 280px; }
+        .modal-content { overflow: visible; }
+        .admin-only { display: none !important; }
+        body.admin .admin-only { display: inline-block !important; }
+        #historyTable th:nth-child(2), #historyTable td:nth-child(2) { left: 65px; }
+        .leaderboard-container { overflow-x: auto; }
+        .spinner-border { color: var(--lime-green) !important; }
+
+        .range-date-button { display: inline-flex; align-items: center; justify-content: space-between; gap: .65rem; min-width: 142px; min-height: 34px; padding: .3rem .65rem; border: 1px solid #46536b; border-radius: .375rem; background: var(--bg-dark); color: var(--text-light); white-space: nowrap; cursor: pointer; }
+        .range-date-button:hover, .range-date-button:focus-visible { border-color: var(--lime-green); outline: 2px solid var(--lime-green); outline-offset: 1px; }
+        .range-date-button svg { width: 17px; height: 17px; color: var(--cyan-glow); flex-shrink: 0; }
+        #rangeCalendar { color-scheme: dark; color: var(--text-light); background: var(--bg-card); border: 1px solid var(--lime-green); border-radius: 12px; padding: 14px; width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; box-shadow: 0 12px 48px #0009; margin: auto; }
+        #rangeCalendar::backdrop { background: #0009; }
+        .range-calendar-head, .range-calendar-nav, .range-calendar-actions { display: flex; align-items: center; gap: 8px; }
+        .range-calendar-head { justify-content: space-between; margin-bottom: 12px; }
+        .range-calendar-head strong { color: var(--lime-green); }
+        .range-calendar-nav { margin-bottom: 8px; }
+        .range-calendar-nav select { min-width: 0; flex: 1; background: var(--bg-dark); color: var(--text-light); border: 1px solid #46536b; border-radius: 6px; padding: 7px 4px; }
+        .range-calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 3px; text-align: center; }
+        .range-calendar-weekday { padding: 4px 0; font-size: .8rem; color: var(--text-muted); }
+        #rangeCalendar button { cursor: pointer; }
+        .range-calendar-control, .range-calendar-day { border: 1px solid #46536b; border-radius: 6px; background: var(--bg-dark); color: var(--text-light); min-height: 36px; padding: 5px; }
+        .range-calendar-day { min-width: 0; width: 100%; min-height: 38px; }
+        .range-calendar-day.in-range { background: #253721; }
+        .range-calendar-day.is-today { border-color: var(--cyan-glow); }
+        .range-calendar-day[aria-pressed="true"] { background: var(--lime-green); color: #000; font-weight: bold; border-color: var(--lime-green); }
+        #rangeCalendar button:hover, #rangeCalendar button:focus-visible { outline: 2px solid var(--cyan-glow); outline-offset: -2px; }
+        #rangeCalendar button:disabled { opacity: .4; cursor: default; }
+        .range-calendar-actions { margin-top: 12px; justify-content: space-between; }
+        .range-calendar-hint { color: var(--text-muted); font-size: .8rem; margin: 8px 0 0; }
+
+        .analysis-player { color: var(--cyan-glow)!important; font-weight: bold; text-decoration: underline; }
+        #analysisModal .modal-body { overflow-y:auto; max-height: 75dvh; }
+        .analysis-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(135px,1fr)); gap:8px; }
+        .analysis-kpi { background:var(--bg-dark); border:1px solid var(--border-color); border-radius:8px; padding:10px; min-width:0; }
+        .analysis-kpi strong { display:block; font-size:1.25rem; overflow-wrap:anywhere; }
+        #analysisChart { width:100%; height:270px; }
+        #analysisModal table { font-size:.9rem; }
+        .analysis-filter { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+        .analysis-filter .range-date-button { width:100%; min-width:0; }
+        .analysis-filter .range-date-button span { font-variant-numeric:tabular-nums; }
+        @media(max-width:360px){.analysis-filter{grid-template-columns:1fr;}}
+    </style>
+</head>
+<body>
+
+<nav class="navbar shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1">🀄 大同麻將戰績系統 <small class="text-muted">V1.1.6</small></span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-light fw-bold fs-6 d-none d-sm-block me-2" id="globalBalanceDisplay">讀取中...</span>
+            <button class="btn btn-outline-cyan btn-sm" id="loginBtn" onclick="openLogin(false)">管理員登入</button>
+            <span id="roleLabel" class="small" style="color:var(--cyan-glow)"></span><button class="btn btn-outline-danger btn-sm" id="logoutBtn" style="display: none;" onclick="doLogout()">🚪 登出</button>
+            <button class="btn btn-lime btn-sm" onclick="handleAddRecordClick()">➕ 新增紀錄</button>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-3">
+    <div class="d-block d-sm-none mb-3 text-center rounded p-2" style="background-color: var(--bg-card); border: 1px solid var(--lime-green);">
+        <span class="text-light fw-bold fs-6" id="globalBalanceDisplayMobile">讀取中...</span>
+    </div>
+
+    <div id="loading" class="text-center my-5">
+        <div class="spinner-border" role="status"></div>
+        <p class="mt-2 text-muted">正在載入雲端數據庫...</p>
+    </div>
+
+    <div id="mainContent" style="display: none;">
+        <div class="card mb-2 p-2">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <select id="datePreset" class="form-select form-select-sm w-auto" onchange="applyPreset()"><option value="all">全部紀錄</option><option value="year">今年</option><option value="month">本月</option><option value="prev">上個月</option><option value="custom">自訂日期</option></select>
+            <label for="startDateButton" class="small">開始</label><input id="startDate" type="date" hidden onchange="markCustom()"><button type="button" id="startDateButton" class="range-date-button" aria-haspopup="dialog" aria-label="選擇開始日期" onclick="openRangeCalendar('startDate')"><span id="startDateText">不限日期</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></button>
+            <label for="endDateButton" class="small">結束</label><input id="endDate" type="date" hidden onchange="markCustom()"><button type="button" id="endDateButton" class="range-date-button" aria-haspopup="dialog" aria-label="選擇結束日期" onclick="openRangeCalendar('endDate')"><span id="endDateText">不限日期</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></button>
+            <button class="btn btn-lime btn-sm" onclick="applyDateFilter()">搜尋</button>
+            <button class="btn btn-outline-cyan btn-sm" onclick="resetFilter()">清除</button>
+          </div>
+          <div id="rangeSummary" class="small mt-2" aria-live="polite"></div>
+          <div class="d-flex flex-wrap gap-2 mt-1"><button class="btn btn-outline-cyan btn-sm admin-only" onclick="openAliases()">玩家簡稱管理</button><button class="btn btn-outline-cyan btn-sm admin-only" onclick="openAudit()">異動紀錄</button></div>
+        </div>
+        <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">📝 歷史紀錄</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart" type="button" role="tab">📈 走勢圖</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="leaderboard-tab" data-bs-toggle="tab" data-bs-target="#leaderboard" type="button" role="tab">🏆 勝率榜</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="history" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-container" id="historyTableContainer">
+                            <table class="table table-bordered mb-0 text-center" id="historyTable"></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="chart" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                            <p class="text-muted small mb-0">💡 圖例開關點擊記憶。懸浮查看即時排名！</p>
+                            <div class="d-flex gap-2 align-items-center flex-wrap">
+                                <button class="btn btn-outline-cyan btn-sm text-nowrap" id="playAnimBtn" onclick="renderChart(true)">▶️ 播放動畫</button>
+                                
+                                <select id="animSpeedSelect" class="form-select form-select-sm" style="width: auto; background-color: var(--bg-dark); color: var(--text-light); border-color: var(--border-color);" onchange="handleSpeedChange()">
+                                    <option value="auto">速度: 自動</option>
+                                    <option value="800">速度: 慢</option>
+                                    <option value="300">速度: 中</option>
+                                    <option value="100">速度: 快</option>
+                                </select>
+
+                                <select id="xAxisInterval" class="form-select form-select-sm" style="width: auto; background-color: var(--bg-dark); color: var(--text-light); border-color: var(--border-color);" onchange="renderChart(false)">
+                                    <option value="auto">X軸: 自動</option>
+                                    <option value="0">X軸: 1局</option>
+                                    <option value="1">X軸: 2局</option>
+                                    <option value="4">X軸: 5局</option>
+                                    <option value="9">X軸: 10局</option>
+                                </select>
+                                
+                                <select id="chartModeSelect" class="form-select form-select-sm fw-bold" style="width: auto; background-color: var(--bg-dark); color: var(--lime-green); border-color: var(--lime-green);" onchange="renderChart(false)">
+                                    <option value="2d">📈 2D 折線圖</option>
+                                    <option value="race">🏁 動態賽跑圖</option>
+                                    <option value="3d">🧊 3D 折線圖</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="chartError" class="alert alert-warning" hidden></div>
+                        <div class="chart-container" id="myChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="leaderboard" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="p-2 text-center" style="background-color: #0B1120; border-bottom: 1px solid var(--border-color);">
+                            <span class="text-muted small">💡 <span id="rankScope">全部歷史紀錄</span>｜點欄位切換排序</span>
+                        </div>
+                        <div class="leaderboard-container" >
+                            <table class="table text-center mb-0">
+                                <thead>
+                                    <tr id="rankHeaders"></tr>
+                                </thead>
+                                <tbody id="leaderboardTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 登入 Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" style="color: var(--lime-green)">管理員權限驗證</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label text-muted">帳號</label>
+                    <input type="text" class="form-control" id="loginAccount" placeholder="請輸入帳號">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted">密碼（不可空白）</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="請輸入密碼">
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-lime w-100" onclick="doLogin()">登入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增紀錄 Modal -->
+<div class="modal fade" id="addRecordModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header d-flex justify-content-between align-items-center">
+                <h5 id="recordTitle" class="modal-title mb-0" style="color: var(--lime-green)">➕ 寫入紀錄</h5>
+                
+                <select class="form-select form-select-sm w-auto mx-3 fw-bold" id="recordTypeSelect" onchange="toggleRecordMode()" style="border-color: var(--lime-green); color: var(--lime-green) !important;">
+                    <option value="match">對戰紀錄 (打牌)</option>
+                    <option value="misc">純雜支紀錄 (收支)</option>
+                </select>
+
+                <button type="button" class="btn-close btn-close-white m-0" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <details id="pasteDetails" class="mb-3 border rounded p-2" style="border-color:var(--border-color)!important"><summary style="color:var(--lime-green)">📋 快速貼上紀錄</summary>
+                    <div class="d-flex align-items-center gap-2 my-2"><label for="pasteYear">年份</label><input type="number" id="pasteYear" min="1900" max="9999" class="form-control form-control-sm w-auto"></div>
+                    <textarea id="pasteText" class="form-control" rows="6" placeholder="10/23&#10;K.雅.吳.翰.&#10;出席費250&#10;K 50&#10;涵270&#10;吳100&#10;翰40"></textarea>
+                    <button type="button" class="btn btn-outline-lime btn-sm mt-2" onclick="parsePaste()">辨識並填入</button>
+                    <div id="pasteIssues" class="small mt-2"></div>
+                </details>
+                <div class="row mb-3">
+                    <div class="col-6"><label class="form-label text-muted">日期 (請依格式)</label><input type="date" class="form-control" id="recordDate"></div>
+                    <div class="col-6"><label class="form-label text-muted">備註</label><input type="text" class="form-control" id="recordMemo" placeholder="例如: 地點 / 項目"></div>
+                </div>
+                <hr style="border-color: var(--border-color);">
+                
+                <div id="matchModeArea">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0 text-light">參賽人員與金額 (大同版無總和限制)</h6>
+                        <button class="btn btn-sm btn-outline-lime" onclick="addPlayerInputRow()">+ 新增人員</button>
+                    </div>
+                    
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-5 text-end text-muted small">該局若有額外雜支 ➔</div>
+                        <div class="col-5"><input type="number" class="form-control" id="recordMatchMisc" placeholder="支出為負 / 收入為正"></div>
+                        <div class="col-2"></div>
+                    </div>
+                    <div id="playerInputsContainer"></div>
+                </div>
+
+                <div id="miscModeArea" style="display: none;">
+                    <div class="alert text-center mb-0" style="background-color: rgba(0, 229, 255, 0.1); border: 1px solid var(--cyan-glow);">
+                        <h6 style="color: var(--cyan-glow)">💰 專屬純雜支紀錄區</h6>
+                        <p class="text-muted small mb-2">此紀錄僅影響公積金餘額，不列入玩家勝率或局數</p>
+                        <div class="d-flex justify-content-center">
+                            <div class="w-75">
+                                <input type="number" class="form-control form-control-lg text-center fw-bold" id="recordPureMisc" placeholder="金額 (支出負 / 收入正)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="px-3 pb-2 small" id="recordPreview"></div>
+            <div class="modal-footer border-0">
+                <button type="button" id="deleteRecordBtn" class="btn btn-outline-danger me-auto" style="display:none" onclick="deleteCurrent()">刪除紀錄</button>
+                <button type="button" class="btn btn-secondary" style="color: #fff !important;" data-bs-dismiss="modal">取消</button>
+                <button type="button" id="submitBtn" class="btn btn-lime" onclick="submitRecord()">確認送出</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="aliasesModal" tabindex="-1"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5>玩家簡稱管理</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="small text-muted">每行一組，格式：正式名稱 = 簡稱。英文大小寫視為相同。</p><textarea id="aliasEditor" class="form-control" rows="12"></textarea></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button class="btn btn-lime" onclick="saveAliasEditor(this)">儲存</button></div></div></div></div>
+<div class="modal fade" id="auditModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5>異動紀錄（最近 200 筆）</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="auditList"></div></div></div></div>
+
+<!-- 日期區間日曆：網頁內建，不依賴瀏覽器原生日曆或外部 CDN -->
+<dialog id="rangeCalendar" aria-labelledby="rangeCalendarTitle">
+  <div class="range-calendar-head"><strong id="rangeCalendarTitle">選擇日期</strong><button type="button" class="range-calendar-control" onclick="closeRangeCalendar()" aria-label="關閉日曆">✕</button></div>
+  <div class="range-calendar-nav">
+    <button id="rangePrevMonth" type="button" class="range-calendar-control" aria-label="上個月" onclick="moveRangeCalendar(-1)">‹</button>
+    <select id="rangeCalendarYear" aria-label="年份" onchange="changeRangeCalendarMonth()"></select>
+    <select id="rangeCalendarMonth" aria-label="月份" onchange="changeRangeCalendarMonth()"></select>
+    <button id="rangeNextMonth" type="button" class="range-calendar-control" aria-label="下個月" onclick="moveRangeCalendar(1)">›</button>
+  </div>
+  <div id="rangeCalendarGrid" class="range-calendar-grid"></div>
+  <div class="range-calendar-actions"><button type="button" class="range-calendar-control" onclick="pickRangeDate('')">不限日期</button><button type="button" class="range-calendar-control" onclick="pickRangeDate(today())">今天</button><button type="button" class="range-calendar-control" onclick="closeRangeCalendar()">取消</button></div>
+  <p class="range-calendar-hint">點選日期後返回篩選列；按「搜尋」套用區間。</p>
+</dialog>
+
+
+<div class="modal fade" id="analysisModal" tabindex="-1" aria-labelledby="analysisTitle">
+ <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-header"><div><h5 id="analysisTitle" class="modal-title" style="color:var(--lime-green)">個人戰績分析</h5><div class="small text-muted">高級管理員專屬</div></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="關閉"></button></div>
+  <div class="modal-body">
+   <div class="card p-2 mb-3" id="analysisFilter">
+    <div class="small fw-bold mb-2" style="color:var(--lime-green)">個人統計日期區間</div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <select id="analysisPreset" class="form-select form-select-sm w-auto" aria-label="個人分析快速日期" onchange="applyAnalysisPreset()"><option value="all">全部紀錄</option><option value="year">今年</option><option value="month">本月</option><option value="prev">上個月</option><option value="main">跟隨主頁區間</option><option value="custom">自訂日期</option></select>
+    </div>
+    <div class="analysis-filter mb-2"><div><label for="analysisStartDateButton" class="small">開始日期</label><input id="analysisStartDate" type="date" hidden onchange="markAnalysisCustom()"><button type="button" id="analysisStartDateButton" class="range-date-button" aria-haspopup="dialog" onclick="openRangeCalendar('analysisStartDate')"><span id="analysisStartDateText">不限日期</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></button></div><div><label for="analysisEndDateButton" class="small">結束日期</label><input id="analysisEndDate" type="date" hidden onchange="markAnalysisCustom()"><button type="button" id="analysisEndDateButton" class="range-date-button" aria-haspopup="dialog" onclick="openRangeCalendar('analysisEndDate')"><span id="analysisEndDateText">不限日期</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></button></div></div>
+    <div class="d-flex flex-wrap gap-2"><button type="button" class="btn btn-lime btn-sm" id="analysisSearch" onclick="applyAnalysisFilter()">搜尋</button><button type="button" class="btn btn-outline-cyan btn-sm" id="analysisReset" onclick="resetAnalysisFilter()">清除</button><button type="button" class="btn btn-outline-cyan btn-sm" onclick="useMainAnalysisRange()">套用主頁區間</button></div>
+    <p class="small text-muted mb-0 mt-2">僅影響此玩家的分析，不會改變主頁統計。</p>
+   </div>
+   <div id="analysisStatus" role="status" aria-live="polite"></div><div id="analysisContent" hidden></div>
+  </div>
+  <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button></div>
+ </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbwREsLcsizT18qdunL3yEaYD4_A1TYZIPigDialyfDTah9s2AsgmRkDZYzYUHI8OW9-/exec"; 
+
+    const FETCH_OPTIONS = (bodyData) => ({
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        redirect: 'follow',
+        body: JSON.stringify(bodyData)
+    });
+
+    const $=id=>document.getElementById(id);
+    let token='',account='',isLoggedIn=false,loginForAdd=false,adminRole='guest';
+    let analysisRequest=0,analysisChart=null,analysisActive=false,analysisPlayer="";
+    const isSenior=()=>isLoggedIn&&adminRole==='senior';
+    let allData={players:[],records:[],hiddenPlayers:[]},filteredRecords=[],playerStats=Object.create(null),sortedPlayers=[],availablePlayersForDropdown=[];
+    let currentSortBy='rate',sortDescending=true,filterStart='',filterEnd='',matchCount=0;
+    let myChart=null,lastChartMode=null,chartLegendState=Object.create(null),animInterval=null,hasPlayedInitialAnim=false;
+    let grandTotal=0,playerGrandTotal=0,miscGrandTotal=0;
+    const colorPalette=['#D9FF00','#00E5FF','#FF0055','#FFaa00','#00ff88','#B700FF','#FF00CC','#0088FF','#FFff00','#FF3300'];
+    const hasScore=v=>v!==undefined&&v!==null&&v!==''&&Number.isFinite(Number(v));
+    const isMatch=r=>Object.values(r.scores||{}).some(hasScore);
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const nameKey=s=>String(s).trim().normalize('NFKC').toLowerCase();
+    const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    function dateKey(v){const m=String(v).trim().match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);if(!m)return '';let y=+m[1],mo=+m[2],d=+m[3],dt=new Date(Date.UTC(y,mo-1,d));return y>=1900&&y<=9999&&dt.getUTCFullYear()===y&&dt.getUTCMonth()===mo-1&&dt.getUTCDate()===d?`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`:'';}
+    function compareId(a,b){const x=String(a),y=String(b);return /^\d+$/.test(x)&&/^\d+$/.test(y)?Number(x)-Number(y):x.localeCompare(y,'zh-Hant',{numeric:true});}
+    function sortRecordsCore(records,ascending=true){return records.sort((a,b)=>{let d=a.date.localeCompare(b.date);if(d)return ascending?d:-d;if(isMatch(a)!==isMatch(b))return isMatch(a)?-1:1;let c=compareId(a.id,b.id);return ascending?c:-c;});}
+    async function api(action,body={}){
+      const res=await fetch(API_URL,FETCH_OPTIONS({action,...body,...(token?{token}:{})}));if(!res.ok)throw Error('網路錯誤 HTTP '+res.status);
+      const r=await res.json();if(!['1.1.0','1.1.4','1.1.6'].includes(r.version))throw Error('後端尚未部署 V1.1，請先更新 Apps Script');
+      if(r.status!=='success'){if(/登入已失效|請先登入管理員/.test(r.message)&&token)clearLogin();throw Error(r.message||'操作失敗');}return r.data;
+    }
+    window.onload=()=>{ $('recordDate').value=today();fetchData();window.addEventListener('resize',()=>{if(myChart)myChart.resize();const h=$('historyTable').querySelector('thead tr')?.offsetHeight;if(h)document.documentElement.style.setProperty('--history-head',h+'px');});$('chart-tab').addEventListener('shown.bs.tab',()=>{if(myChart)myChart.resize();if(!hasPlayedInitialAnim){hasPlayedInitialAnim=true;renderChart(true);}}); };
+    async function fetchData(){
+      $('loading').style.display='block';try{let data=await api('getData');data.records=data.records.map(r=>({...r,date:dateKey(r.date)}));if(data.records.some(r=>!r.date))throw Error('資料庫含無效日期');allData=data;availablePlayersForDropdown=allData.players.filter(p=>!(allData.hiddenPlayers||[]).includes(p));$('mainContent').style.display='block';processData();return true;}
+      catch(e){alert('資料載入失敗：'+e.message);return false;}finally{$('loading').style.display='none';}
+    }
+
+    // Independent calendar: clicking anywhere on the date button works on desktop and touch screens.
+    let rangeCalendarField='',rangeCalendarYear=0,rangeCalendarMonth=0;
+    const isAnalysisDate=id=>['analysisStartDate','analysisEndDate'].includes(id);
+    const isStartDate=id=>['startDate','analysisStartDate'].includes(id);
+    function calendarPair(id){return isAnalysisDate(id)?['analysisStartDate','analysisEndDate']:['startDate','endDate'];}
+    function syncDateButtons(ids){for(const id of ids){const v=$(id).value;$(id+'Text').textContent=v?v.replaceAll('-','/'):'不限日期';$(id+'Button').setAttribute('aria-label',`選擇${isAnalysisDate(id)?'個人分析':''}${isStartDate(id)?'開始':'結束'}日期：${v||'不限日期'}`);}}
+    function syncRangeDateButtons(){syncDateButtons(['startDate','endDate']);}
+    function syncAnalysisDateButtons(){syncDateButtons(['analysisStartDate','analysisEndDate']);}
+    function openRangeCalendar(id){
+      if(!['startDate','endDate','analysisStartDate','analysisEndDate'].includes(id))return;
+      if(isAnalysisDate(id)&&(!analysisActive||!isSenior()))return;
+      const dialog=$('rangeCalendar');if(dialog.open)return;
+      // Keep the native dialog inside the Bootstrap modal's focus trap while selecting a personal date.
+      (isAnalysisDate(id)?$('analysisModal'):document.body).append(dialog);
+      rangeCalendarField=id;
+      const pair=calendarPair(id),other=isStartDate(id)?pair[1]:pair[0],base=$(id).value||$(other).value||today();
+      rangeCalendarYear=Number(base.slice(0,4));rangeCalendarMonth=Number(base.slice(5,7));
+      $('rangeCalendarTitle').textContent=(isAnalysisDate(id)?'個人分析：':'')+(isStartDate(id)?'選擇開始日期':'選擇結束日期');
+      const yearSelect=$('rangeCalendarYear'),monthSelect=$('rangeCalendarMonth');
+      yearSelect.replaceChildren();monthSelect.replaceChildren();
+      // Keep normal historical years readily accessible, with earlier/later years reachable by month navigation.
+      const lo=Math.max(1900,Math.min(rangeCalendarYear-10,Number(today().slice(0,4))-30)),hi=Math.min(9999,Math.max(rangeCalendarYear+10,Number(today().slice(0,4))+10));
+      for(let y=lo;y<=hi;y++)yearSelect.add(new Option(y+' 年',String(y)));
+      for(let m=1;m<=12;m++)monthSelect.add(new Option(m+' 月',String(m)));
+      renderRangeCalendar();
+      if(!dialog.open)dialog.showModal();
+      const selected=$('rangeCalendarGrid').querySelector('[aria-pressed="true"]')||$('rangeCalendarGrid').querySelector('.is-today')||$('rangeCalendarGrid').querySelector('.range-calendar-day');selected?.focus();
+    }
+    function renderRangeCalendar(){
+      const ys=$('rangeCalendarYear');if(![...ys.options].some(o=>Number(o.value)===rangeCalendarYear)){ys.add(new Option(rangeCalendarYear+' 年',String(rangeCalendarYear)),rangeCalendarYear<Number(ys.options[0]?.value)?0:undefined);}
+      ys.value=String(rangeCalendarYear);$('rangeCalendarMonth').value=String(rangeCalendarMonth);
+      $('rangePrevMonth').disabled=rangeCalendarYear===1900&&rangeCalendarMonth===1;$('rangeNextMonth').disabled=rangeCalendarYear===9999&&rangeCalendarMonth===12;
+      const grid=$('rangeCalendarGrid');grid.replaceChildren();
+      for(const w of ['日','一','二','三','四','五','六']){const e=document.createElement('div');e.className='range-calendar-weekday';e.textContent=w;grid.append(e);}
+      const startDay=new Date(Date.UTC(rangeCalendarYear,rangeCalendarMonth-1,1)).getUTCDay(),days=new Date(Date.UTC(rangeCalendarYear,rangeCalendarMonth,0)).getUTCDate();
+      for(let i=0;i<startDay;i++)grid.append(document.createElement('span'));
+      const pair=calendarPair(rangeCalendarField),selected=$(rangeCalendarField).value,a=$(pair[0]).value,b=$(pair[1]).value,now=today();
+      for(let d=1;d<=days;d++){
+        const v=`${rangeCalendarYear}-${String(rangeCalendarMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`,btn=document.createElement('button');
+        btn.type='button';btn.className='range-calendar-day';btn.textContent=String(d);btn.dataset.date=v;btn.setAttribute('aria-label',v);btn.setAttribute('aria-pressed',String(v===selected));
+        if(v===now)btn.classList.add('is-today');if(a&&b&&v>=a&&v<=b)btn.classList.add('in-range');btn.onclick=()=>pickRangeDate(v);grid.append(btn);
+      }
+    }
+    function changeRangeCalendarMonth(){rangeCalendarYear=Number($('rangeCalendarYear').value);rangeCalendarMonth=Number($('rangeCalendarMonth').value);renderRangeCalendar();}
+    function moveRangeCalendar(delta){let m=rangeCalendarMonth+delta,y=rangeCalendarYear;if(m===0){m=12;y--;}if(m===13){m=1;y++;}if(y<1900||y>9999)return;rangeCalendarYear=y;rangeCalendarMonth=m;renderRangeCalendar();}
+    function closeRangeCalendar(){const d=$('rangeCalendar');if(d.open)d.close();}
+    function pickRangeDate(v){if(!rangeCalendarField||(v&&!dateKey(v)))return;$(rangeCalendarField).value=v;if(isAnalysisDate(rangeCalendarField))markAnalysisCustom();else markCustom();closeRangeCalendar();}
+    $('rangeCalendar').addEventListener('click',e=>{if(e.target!==$('rangeCalendar'))return;const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeRangeCalendar();});
+    $('rangeCalendar').addEventListener('keydown',e=>{if(e.key==='Escape')e.stopPropagation();});
+    $('rangeCalendar').addEventListener('close',()=>{if($('rangeCalendar').open)return;const id=rangeCalendarField;rangeCalendarField='';document.body.append($('rangeCalendar'));if(id&&(!isAnalysisDate(id)||analysisActive))$(id+'Button').focus();});
+    function markCustom(){$('datePreset').value='custom';syncRangeDateButtons();}
+    function presetDates(p){let t=today(),y=+t.slice(0,4),m=+t.slice(5,7),start='',end='';if(p==='year'){start=y+'-01-01';end=y+'-12-31';}if(p==='month'||p==='prev'){if(p==='prev'){m--;if(m===0){m=12;y--;}}start=`${y}-${String(m).padStart(2,'0')}-01`;end=`${y}-${String(m).padStart(2,'0')}-${new Date(Date.UTC(y,m,0)).getUTCDate()}`;}return [start,end];}
+    function applyPreset(){const p=$('datePreset').value;if(p==='custom')return;const [start,end]=presetDates(p);$('startDate').value=start;$('endDate').value=end;applyDateFilter();}
+    function resetFilter(){$('datePreset').value='all';applyPreset();}
+    function applyDateFilter(){syncRangeDateButtons();const a=$('startDate').value,b=$('endDate').value;if(a&&b&&a>b){alert('開始日期不得晚於結束日期');return;}filterStart=a;filterEnd=b;processData();}
+    function sumScores(r){return Object.values(r.scores||{}).filter(hasScore).reduce((a,b)=>a+Number(b),0);}
+    function processData(){
+      closeAnalysis();
+      playerStats=Object.create(null);grandTotal=playerGrandTotal=miscGrandTotal=matchCount=0;
+      const asc=sortRecordsCore([...allData.records]);let fullMatches=0,fullMisc=0,fullTotal=0,fullMiscSum=0;
+      asc.forEach(r=>{r.displayId=isMatch(r)?++fullMatches:'雜支'+(++fullMisc);fullTotal+=sumScores(r)+Number(r.misc||0);fullMiscSum+=Number(r.misc||0);});
+      filteredRecords=asc.filter(r=>(!filterStart||r.date>=filterStart)&&(!filterEnd||r.date<=filterEnd));
+      allData.players.forEach(p=>playerStats[p]={allTimeAmount:0,games:0,wins:0,loses:0,historySum:[0]});
+      filteredRecords.forEach(r=>{let round=sumScores(r);if(isMatch(r)){matchCount++;allData.players.forEach(p=>{let st=playerStats[p],v=r.scores[p],last=st.historySum.at(-1);if(hasScore(v)){v=Number(v);st.games++;st.allTimeAmount+=v;if(v<=0)st.wins++;else st.loses++;st.historySum.push(last+v);}else st.historySum.push(last);});}playerGrandTotal+=round;miscGrandTotal+=Number(r.misc||0);grandTotal+=round+Number(r.misc||0);r.playersCumulativeTotal=playerGrandTotal;});
+      const html=`總雜支: <span style="color:var(--cyan-glow)">${signed(fullMiscSum)}</span> | 公積金餘額: ${formatMoney(fullTotal)}`;$('globalBalanceDisplay').innerHTML=html;$('globalBalanceDisplayMobile').innerHTML=html;
+      const scope=filterStart||filterEnd?`${filterStart||'不限'} ～ ${filterEnd||'不限'}`:'全部歷史紀錄';$('rangeSummary').textContent=`${scope}｜對戰 ${matchCount} 場｜純雜支 ${filteredRecords.length-matchCount} 筆｜區間玩家金額 ${signed(playerGrandTotal)}｜區間雜支 ${signed(miscGrandTotal)}｜公積金變動 ${signed(grandTotal)}`;$('rankScope').textContent=scope;
+      sortedPlayers=allData.players.filter(p=>!(allData.hiddenPlayers||[]).includes(p));sortedPlayers.forEach(p=>{if(chartLegendState[p]===undefined)chartLegendState[p]=true;});
+      renderHistory();sortLeaderboard(currentSortBy,false);
+      try{renderChart(false);}catch(e){console.error("走勢圖繪製失敗",e);$('chartError').textContent="走勢圖繪製失敗："+e.message;$('chartError').hidden=false;}
+    }
+    function signed(n){return (n>0?'+':'')+Number(n).toLocaleString('zh-TW',{maximumFractionDigits:8});}
+    function formatMoney(n){if(!hasScore(n))return '—';return `<span class="${n>0?'win-text':n<0?'lose-text':''}">${esc(Number(n).toLocaleString('zh-TW',{maximumFractionDigits:8}))}</span>`;}
+    function renderHistory(){
+      let head='<thead><tr><th style="width:65px;min-width:65px">局數</th><th style="width:110px;min-width:110px">日期</th>';
+      if(isLoggedIn)head+='<th>操作</th>';head+='<th>備註</th><th>雜支</th><th>累積總額</th>';sortedPlayers.forEach(p=>head+=`<th>${esc(p)}</th>`);
+      head+='</tr><tr><th colspan="2">玩家總結 ➔</th>'+(isLoggedIn?'<th>—</th>':'')+'<th>—</th><th>'+signed(miscGrandTotal)+'</th><th>'+formatMoney(playerGrandTotal)+'</th>';sortedPlayers.forEach(p=>head+=`<th>${formatMoney(playerStats[p].allTimeAmount)}</th>`);head+='</tr></thead>';
+      let body='<tbody>';let desc=sortRecordsCore([...filteredRecords],false);desc.forEach(r=>{body+=`<tr><td>${esc(r.displayId)}</td><td>${esc(r.date.replaceAll('-','/'))}</td>`;if(isLoggedIn)body+=`<td><button class="btn btn-outline-cyan btn-sm edit-record" data-id="${esc(r.id)}">✎ 編輯</button></td>`;body+=`<td>${esc(r.memo)}</td><td style="color:var(--cyan-glow)!important">${r.misc?signed(r.misc):'—'}</td><td>${formatMoney(r.playersCumulativeTotal)}</td>`;sortedPlayers.forEach(p=>body+=`<td>${formatMoney(r.scores[p])}</td>`);body+='</tr>';});if(!desc.length)body+=`<tr><td colspan="${5+sortedPlayers.length+(isLoggedIn?1:0)}" class="p-4">此區間無紀錄</td></tr>`;$('historyTable').innerHTML=head+body+'</tbody>';$('historyTable').querySelectorAll('.edit-record').forEach(b=>b.onclick=()=>openEdit(b.dataset.id));
+      const h=$('historyTable').querySelector('thead tr').offsetHeight;document.documentElement.style.setProperty('--history-head',h+'px');
+    }
+    const rankCols=[['rate','勝率'],['amount','累計金額'],['games','局數'],['wins','勝局'],['loses','輸局'],['attendance','出席率'],['average','場均輸錢']];
+    function rankValue(p,k){let s=playerStats[p];switch(k){case 'rate':return s.games?s.wins/s.games:null;case 'amount':return s.allTimeAmount;case 'attendance':return matchCount?s.games/matchCount:null;case 'average':return s.games?s.allTimeAmount/s.games:null;default:return s[k];}}
+    function sortLeaderboard(k,toggle=true){if(!isLoggedIn&&['attendance','average'].includes(k))k='rate';if(toggle){if(k===currentSortBy)sortDescending=!sortDescending;else sortDescending=true;}currentSortBy=k;
+      const cols=rankCols.filter(c=>isLoggedIn||!['attendance','average'].includes(c[0]));$('rankHeaders').innerHTML='<th>排名</th><th>玩家</th>'+cols.map(c=>`<th class="sortable" data-sort="${c[0]}">${c[1]}${c[0]===k?(sortDescending?' ▼':' ▲'):''}</th>`).join('');$('rankHeaders').querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>sortLeaderboard(b.dataset.sort));
+      let players=sortedPlayers.filter(p=>isLoggedIn||playerStats[p].games>0);players.sort((a,b)=>{let x=rankValue(a,k),y=rankValue(b,k);if(x===null||y===null){if(x===null&&y!==null)return 1;if(y===null&&x!==null)return -1;}return (sortDescending?-1:1)*((x??0)-(y??0))||playerStats[b].games-playerStats[a].games||a.localeCompare(b,'zh-Hant');});
+      $('leaderboardTableBody').innerHTML=players.map((p,i)=>`<tr><td>${['🥇','🥈','🥉'][i]||''} ${i+1}</td><td class="fw-bold">${isSenior()?`<button type="button" class="btn btn-link p-0 analysis-player" data-player="${esc(p)}">${esc(p)} ↗</button>`:esc(p)}</td>`+cols.map(([k])=>{let v=rankValue(p,k);return `<td>${v===null?'—':k==='rate'||k==='attendance'?`<span style="color:${k==='rate'?'var(--lime-green)':'var(--cyan-glow)'}">${(v*100).toFixed(1)}%</span>`:k==='amount'?formatMoney(v):k==='average'?formatMoney(Math.round(v)):v}</td>`;}).join('')+'</tr>').join('');
+      $('leaderboardTableBody').querySelectorAll('.analysis-player').forEach(b=>b.onclick=()=>openAnalysis(b.dataset.player));
+    }
+
+    function handleSpeedChange() {
+        if (animInterval) {
+            renderChart(true); 
+        }
+    }
+
+    function renderChart(isPlayback = false) {
+        $('chartError').hidden=true;
+        let mode = document.getElementById('chartModeSelect').value;
+        let chartDom = document.getElementById('myChart');
+        
+        if (!myChart || lastChartMode !== mode) {
+            if(myChart) myChart.dispose(); 
+            myChart = echarts.init(chartDom);
+            lastChartMode = mode;
+        }
+        
+        if(animInterval) { clearInterval(animInterval); animInterval = null; }
+        
+        let labels = ["起始"];
+        let matchDates = [""];
+        let matchOnlyRecords = filteredRecords.filter(isMatch);
+        for(let i = 1; i <= matchOnlyRecords.length; i++) {
+            labels.push(matchOnlyRecords[i-1].displayId);
+            matchDates.push(matchOnlyRecords[i-1].date.substring(0, 10)); 
+        }
+        
+        let totalSteps = labels.length;
+
+        let activePlayers = sortedPlayers.filter(p => playerStats[p].allTimeAmount !== 0 || playerStats[p].games > 0);
+        let currentActivePlayers = activePlayers.filter(p => chartLegendState[p] !== false);
+        if (!matchOnlyRecords.length || !activePlayers.length) {
+          myChart.clear(); myChart.setOption({title:{text:'此區間無對戰紀錄',left:'center',top:'middle',textStyle:{color:'#CBD5E1'}}});
+          document.getElementById('playAnimBtn').disabled=true; return;
+        }
+        if (!currentActivePlayers.length && mode==='race') { currentActivePlayers = []; }
+
+        let intervalVal = document.getElementById('xAxisInterval').value;
+        let axisInterval = intervalVal === 'auto' ? 'auto' : parseInt(intervalVal);
+        
+        let speedVal = document.getElementById('animSpeedSelect').value;
+        let speed = speedVal === 'auto' ? Math.max(100, Math.min(300, 3000 / totalSteps)) : parseInt(speedVal);
+        
+        let yAxisMinMaxRule = {
+            max: function (value) { let t = Math.ceil(value.max / 6000) * 6000; return t === 0 ? 6000 : t; },
+            min: function (value) { let t = Math.floor(value.min / 6000) * 6000; return t === 0 ? -6000 : t; }
+        };
+
+        let option = {
+            backgroundColor: 'transparent',
+            color: colorPalette,
+            animation: true,
+            animationDuration: isPlayback ? speed : 800,
+            animationDurationUpdate: isPlayback ? speed : 800,
+            animationEasing: 'linear',
+            animationEasingUpdate: 'linear',
+            legend: { data: activePlayers, selected: {...chartLegendState}, textStyle: { color: '#CBD5E1' }, top: 0, type: 'scroll' }
+        };
+
+        function getSeriesData(step) {
+            if (mode === 'race') {
+                option.grid = { left: '15%', right: '15%', bottom: '5%', top: '15%', containLabel: true }; 
+                
+                option.xAxis = { 
+                    type: 'value', 
+                    axisLabel: { color: '#CBD5E1' }, 
+                    splitLine: { lineStyle: { color: '#1E293B', type: 'dashed' } },
+                    min: function(value) { return value.min >= 0 ? 0 : Math.floor(value.min / 1000) * 1000 - 2000; },
+                    max: function(value) { return value.max <= 0 ? 0 : Math.ceil(value.max / 1000) * 1000 + 2000; }
+                };
+                
+                let stepData = currentActivePlayers.map(p => {
+                    return { name: p, value: playerStats[p].historySum[step - 1] };
+                });
+                stepData.sort((a, b) => b.value - a.value);
+                let sortedNames = stepData.map(item => item.name);
+
+                option.yAxis = { 
+                    type: 'category', 
+                    inverse: true, 
+                    data: sortedNames, 
+                    axisLabel: { color: '#F8FAFC', fontSize: 13, fontWeight: 'bold', interval: 0 },
+                    max: Math.max(0,currentActivePlayers.length - 1),
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    animationDuration: 300,
+                    animationDurationUpdate: 300
+                };
+                
+                let currentRoundStr = '局數: ' + labels[step - 1];
+                let dateStr = matchDates[step - 1] ? '  (' + matchDates[step - 1] + ')' : '';
+                option.title = {
+                    text: currentRoundStr + dateStr,
+                    right: '5%',
+                    bottom: '10%',
+                    textStyle: { color: 'rgba(217, 255, 0, 0.4)', fontSize: 32, fontWeight: 'bold' } 
+                };
+                
+                option.tooltip = { show: false };
+
+                let raceData = stepData.map((item) => {
+                    let originalIndex = sortedPlayers.indexOf(item.name);
+                    let val = item.value || 0;
+                    let isPos = val >= 0;
+                    
+                    return {
+                        name: item.name, 
+                        value: val,
+                        itemStyle: { color: colorPalette[originalIndex % colorPalette.length] },
+                        label: {
+                            show: true,
+                            position: isPos ? 'right' : 'left',    
+                            offset: isPos ? [5, 0] : [-5, 0],      
+                            valueAnimation: true,
+                            color: '#F8FAFC',
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                            formatter: isPos ? ('+' + val + '  ' + item.name) : (item.name + '  ' + val)
+                        }
+                    };
+                });
+
+                return [{
+                    type: 'bar',
+                    data: raceData
+                }];
+            }
+            else if (mode === '2d') {
+                option.title = { show: false };
+                option.tooltip = {
+                    trigger: 'axis',
+                    confine: true,         
+                    appendToBody: true,    
+                    backgroundColor: '#131B2F',
+                    borderColor: '#D9FF00',
+                    textStyle: { color: '#F8FAFC' },
+                    formatter: function (params) {
+                        let sortedParams = [...params].sort((a, b) => b.data - a.data);
+                        let dateText = matchDates[params[0].dataIndex] ? ` (${matchDates[params[0].dataIndex]})` : '';
+                        let html = `<div style="font-weight:bold; border-bottom:1px solid #1E293B; padding-bottom:6px; margin-bottom:6px;">局數：${sortedParams[0].axisValue}${dateText} (即時排名)</div>`;
+                        sortedParams.forEach(p => {
+                            let sign = p.data > 0 ? '+' : '';
+                            html += `<div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
+                                <span>${p.marker} ${esc(p.seriesName)}</span>
+                                <span style="font-weight:bold; color:#F8FAFC; margin-left: 20px;">${sign}${p.data}</span>
+                            </div>`;
+                        });
+                        return html;
+                    }
+                };
+                option.grid = { left: '3%', right: '4%', bottom: '3%', containLabel: true };
+                option.xAxis = { type: 'category', boundaryGap: false, data: labels, axisLabel: { color: '#CBD5E1', interval: axisInterval }, axisLine: { lineStyle: { color: '#1E293B' } } };
+                option.yAxis = { type: 'value', interval: 6000, max: yAxisMinMaxRule.max, min: yAxisMinMaxRule.min, axisLabel: { color: '#CBD5E1' }, splitLine: { lineStyle: { color: '#1E293B', type: 'dashed' } } };
+                
+                return activePlayers.map((p) => {
+                    let originalIndex = sortedPlayers.indexOf(p);
+                    return {
+                        name: p, type: 'line', smooth: false, showSymbol: false,
+                        lineStyle: { width: 3, shadowColor: colorPalette[originalIndex % colorPalette.length], shadowBlur: 10 },
+                        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: colorPalette[originalIndex % colorPalette.length] }, { offset: 1, color: 'rgba(0,0,0,0)' }]), opacity: 0.1 },
+                        data: playerStats[p].historySum.slice(0, step)
+                    };
+                });
+            } 
+            else {
+                option.title = { show: false };
+                option.tooltip = { 
+                    backgroundColor: '#131B2F', 
+                    borderColor: '#D9FF00', 
+                    textStyle: { color: '#F8FAFC' },
+                    confine: true, 
+                    appendToBody: true 
+                };
+                option.grid3D = {
+                    boxWidth: 200, boxDepth: 120, boxHeight: 80,
+                    viewControl: { projection: 'perspective', autoRotate: false, distance: 250 },
+                    axisLine: { lineStyle: { color: '#CBD5E1' } }, splitLine: { lineStyle: { color: '#1E293B' } }, axisPointer: { lineStyle: { color: '#D9FF00' } }
+                };
+                option.xAxis3D = { type: 'category', data: labels, name: '將數', nameTextStyle: { color: '#F8FAFC' }, axisLabel: { interval: axisInterval } };
+                option.yAxis3D = { type: 'category', data: currentActivePlayers, name: '玩家', nameTextStyle: { color: '#F8FAFC' }, axisLabel: { interval: 0 } };
+                option.zAxis3D = { type: 'value', name: '金額', nameTextStyle: { color: '#F8FAFC' }, interval: 6000, max: yAxisMinMaxRule.max, min: yAxisMinMaxRule.min };
+                
+                return currentActivePlayers.map((p) => {
+                    let originalIndex = sortedPlayers.indexOf(p);
+                    let pData = playerStats[p].historySum.slice(0, step).map((amount, roundIndex) => {
+                        return [labels[roundIndex], p, amount];
+                    });
+                    return {
+                        name: p, type: 'line3D', data: pData,
+                        lineStyle: { width: 4, color: colorPalette[originalIndex % colorPalette.length] },
+                        itemStyle: { color: colorPalette[originalIndex % colorPalette.length] }
+                    };
+                });
+            }
+        }
+
+        let playBtn = document.getElementById('playAnimBtn');
+
+        if (isPlayback && totalSteps > 1) {
+            if(playBtn) { playBtn.disabled = true; playBtn.innerText = "⏳ 播放中..."; }
+            let currentStep = 1; 
+            option.series = getSeriesData(currentStep);
+            myChart.setOption(option, true); 
+            
+            animInterval = setInterval(() => {
+                currentStep++;
+                myChart.setOption({
+                    yAxis: option.yAxis,        
+                    series: getSeriesData(currentStep), 
+                    title: option.title 
+                });
+                
+                if(currentStep >= totalSteps) {
+                    clearInterval(animInterval);
+                    animInterval = null;
+                    if(playBtn) { playBtn.disabled = false; playBtn.innerText = "▶️ 播放動畫"; }
+                }
+            }, speed);
+
+        } else {
+            option.series = getSeriesData(totalSteps);
+            myChart.setOption(option, true);
+            if(playBtn) { playBtn.disabled = false; playBtn.innerText = "▶️ 播放動畫"; }
+        }
+
+        myChart.off('legendselectchanged');
+        myChart.on('legendselectchanged', function (params) {
+            chartLegendState = params.selected;
+            if (mode === 'race' || mode === '3d') {
+                renderChart(false);
+            }
+        });
+    }
+
+    const loginModal=new bootstrap.Modal($('loginModal')),addRecordModal=new bootstrap.Modal($('addRecordModal')),aliasesModal=new bootstrap.Modal($('aliasesModal')),auditModal=new bootstrap.Modal($('auditModal'));
+    let aliases=[],editing=null,pastePending=false,busy=false;
+    function openLogin(forAdd){loginForAdd=forAdd;$('loginAccount').value='';$('loginPassword').value='';loginModal.show();}
+    function handleAddRecordClick(){if(!isLoggedIn){openLogin(true);return;}initAddRecordForm();addRecordModal.show();}
+    function updateLoginUI(){document.body.classList.toggle('admin',isLoggedIn);$('loginBtn').style.display=isLoggedIn?'none':'';$('logoutBtn').style.display=isLoggedIn?'inline-block':'none';$('logoutBtn').textContent='登出 '+account;$('roleLabel').textContent=isSenior()?'高級管理員':isLoggedIn?'一般管理員':'';if(!isLoggedIn&&['attendance','average'].includes(currentSortBy)){currentSortBy='rate';sortDescending=true;}if(allData.players.length){renderHistory();sortLeaderboard(currentSortBy,false);}}
+    function clearLogin(){closeAnalysis();token='';account='';adminRole='guest';isLoggedIn=false;aliases=[];editing=null;pastePending=false;addRecordModal.hide();aliasesModal.hide();auditModal.hide();updateLoginUI();}
+    async function doLogout(){try{await api('logout');}catch(e){alert('伺服器登出未確認：'+e.message+'。本機已清除登入狀態。');}finally{clearLogin();}}
+    async function doLogin(){const acc=$('loginAccount').value.trim(),pwd=$('loginPassword').value,btn=$('loginModal').querySelector('.btn-lime');if(!acc||!pwd){alert('請輸入帳號及密碼');return;}btn.disabled=true;btn.textContent='驗證中…';try{let r=await api('login',{account:acc,password:pwd});token=r.token;account=r.account;adminRole=r.role==='senior'?'senior':'admin';isLoggedIn=true;$('loginPassword').value='';updateLoginUI();loginModal.hide();try{aliases=await api('getAliases');}catch(e){alert('簡稱載入失敗：'+e.message);}if(loginForAdd&&isLoggedIn){initAddRecordForm();addRecordModal.show();}}catch(e){alert(e.message);}finally{btn.disabled=false;btn.textContent='登入';}}
+    function toggleRecordMode(){let match=$('recordTypeSelect').value==='match';$('matchModeArea').style.display=match?'block':'none';$('miscModeArea').style.display=match?'none':'block';updatePreview();}
+    function initAddRecordForm(record=null){editing=record?JSON.parse(JSON.stringify(record)):null;pastePending=false;$('recordTitle').textContent=record?'編輯紀錄 #'+record.id:'➕ 寫入紀錄';$('recordDate').value=record?record.date:today();$('recordMemo').value=record?record.memo:'';$('recordMatchMisc').value=record?record.misc:'';$('recordPureMisc').value=record?record.misc:'';$('recordTypeSelect').value=record&&!isMatch(record)?'misc':'match';$('deleteRecordBtn').style.display=record?'inline-block':'none';$('submitBtn').textContent=record?'確認修改':'確認送出';$('pasteDetails').open=false;$('pasteYear').value=$('recordDate').value.slice(0,4);$('pasteText').value='';$('pasteIssues').replaceChildren();$('playerInputsContainer').replaceChildren();if(record&&isMatch(record))Object.entries(record.scores).filter(([,v])=>hasScore(v)).forEach(([n,v])=>addPlayerInputRow(n,v));else for(let i=0;i<4;i++)addPlayerInputRow();toggleRecordMode();updatePreview();}
+    function openEdit(id){if(!isLoggedIn)return;let r=allData.records.find(x=>String(x.id)===String(id));if(!r){alert('紀錄不存在');return;}initAddRecordForm(r);addRecordModal.show();}
+    function addPlayerInputRow(name='',value=''){
+      let row=document.createElement('div');row.className='row mb-2 align-items-center player-input-row';row.innerHTML='<div class="col-5"><select class="form-select player-select"><option value="">選擇玩家</option></select></div><div class="col-5"><input type="number" step="any" class="form-control amount-input" placeholder="金額"></div><div class="col-2"><button type="button" class="btn btn-outline-danger btn-sm w-100 remove-player">✖</button></div>';
+      let select=row.querySelector('select');[...new Set([...availablePlayersForDropdown,...(name?[name]:[])])].forEach(n=>select.add(new Option(n,n)));select.add(new Option('++新增其他玩家++','NEW_PLAYER'));select.value=name;row.querySelector('input').value=value;select.addEventListener('change',()=>{if(select.value==='NEW_PLAYER'){let n=prompt('請輸入正式玩家名稱（不是簡稱）');if(n&&n.trim()){n=n.trim();if(![...select.options].some(o=>o.value===n))select.add(new Option(n,n),select.options.length-1);select.value=n;}else select.value='';}updatePreview();});row.querySelector('input').addEventListener('input',updatePreview);row.querySelector('.remove-player').onclick=()=>{row.remove();updatePreview();};$('playerInputsContainer').append(row);updatePreview();return row;
+    }
+    function formData(strict=true){let date=$('recordDate').value,memo=$('recordMemo').value,match=$('recordTypeSelect').value==='match',misc=$(match?'recordMatchMisc':'recordPureMisc').value,players=[],seen=new Set();if(match){for(let row of document.querySelectorAll('.player-input-row')){let name=row.querySelector('select').value,amount=row.querySelector('input').value;if(!name&&!amount)continue;if(!name||amount===''||!Number.isFinite(Number(amount))){if(strict)throw Error('玩家及有效金額必須成對填寫');continue;}if(seen.has(nameKey(name))){if(strict)throw Error('重複玩家：'+name);continue;}seen.add(nameKey(name));players.push({name,amount:Number(amount)});}}
+      if(strict){if(!dateKey(date))throw Error('請輸入有效日期');if(match&&!players.length)throw Error('請至少輸入一位玩家與金額');if(!match&&misc==='')throw Error('請輸入雜支金額');if(misc!==''&&!Number.isFinite(Number(misc)))throw Error('雜支金額無效');if(pastePending)throw Error('請先處理快速貼上提示並確認解析結果');}return {date,memo,misc:misc===''?'':Number(misc),players};}
+    function updatePreview(){let d=formData(false),total=d.players.reduce((a,p)=>a+p.amount,0),misc=Number(d.misc||0),prev=editing?sumScores(editing)+Number(editing.misc||0):null;$('recordPreview').textContent=`出席 ${d.players.length} 人｜玩家合計 ${signed(total)}｜雜支 ${signed(misc)}｜公積金變動 ${signed(total+misc)}`+(prev!==null?`（修改前 ${signed(prev)}；差額 ${signed(total+misc-prev)}）`:'');}
+    ['recordMatchMisc','recordPureMisc'].forEach(id=>$(id).addEventListener('input',updatePreview));
+    function parseText(raw,year,lookup){
+      const lines=raw.normalize('NFKC').replace(/−/g,'-').split(/\r?\n/).map(x=>x.trim()).filter(Boolean),listed=[],entries=[],warnings=[];let date='',misc='',seenDate=false,seenFee=false;
+      const resolve=n=>lookup.get(nameKey(n))||'';
+      for(let line of lines){let m=line.match(/^(?:(\d{4})[-/年])?(\d{1,2})[-/月](\d{1,2})日?$/);if(m){if(seenDate)warnings.push('重複日期：'+line);seenDate=true;date=dateKey(`${m[1]||year}-${m[2]}-${m[3]}`);if(!date)warnings.push('日期無效：'+line);continue;}
+        m=line.match(/^(出席費|雜費|雜支)\s*[:：]?\s*([+-]?\d[\d,]*(?:\.\d+)?)\s*元?$/);if(m){if(seenFee)warnings.push('重複雜支：'+line);seenFee=true;misc=Number(m[2].replaceAll(',',''));continue;}
+        // 名單行：末尾句點、頓號，或多個以點分隔且不符合金額格式的名稱。
+        if(/[.、]/.test(line)&&(/[.、]$/.test(line)||line.split(/[.、]+/).filter(Boolean).every(n=>resolve(n.trim()))||!/[+-]?\d+(?:\.\d+)?\s*元?$/.test(line))){listed.push(...line.split(/[.、]+/).map(x=>x.trim()).filter(Boolean));continue;}
+        // 優先用已知玩家全名/簡稱的最長匹配，支援名稱本身含數字。
+        let found=false;const keys=[...lookup.keys()].sort((a,b)=>b.length-a.length);for(let k of keys){if(!nameKey(line).startsWith(k))continue;let rest=line.slice(k.length).trim().replace(/^[:：]\s*/,'');if(/^[+-]?\d[\d,]*(?:\.\d+)?\s*元?$/.test(rest)){entries.push({raw:line.slice(0,k.length).trim(),name:lookup.get(k),amount:Number(rest.replace(/[,元\s]/g,''))});found=true;break;}}if(found)continue;
+        m=line.match(/^(.+?)\s*[:：]?\s*([+-]?\d[\d,]*(?:\.\d+)?)\s*元?$/);if(m){let n=m[1].trim().replace(/[:：]$/,'');entries.push({raw:n,name:resolve(n),amount:Number(m[2].replaceAll(',',''))});continue;}
+        warnings.push('無法辨識：'+line);
+      }
+      if(!date)warnings.push('缺少有效日期，請手動填寫');
+      return {date,misc,listed,entries,warnings};
+    }
+    function makeLookup(){let m=new Map(allData.players.map(n=>[nameKey(n),n]));aliases.forEach(a=>m.set(nameKey(a.alias),a.name));return m;}
+    async function parsePaste(){if(!isLoggedIn)return;const raw=$('pasteText').value.trim();if(!raw){alert('請先貼上文字');return;}if(editing&&!confirm('辨識結果將取代編輯中的日期、玩家及雜支，是否繼續？'))return;let lookup=makeLookup(),parsed=parseText(raw,$('pasteYear').value,lookup),unknown=[...new Set([...parsed.listed.filter(n=>!lookup.has(nameKey(n))),...parsed.entries.filter(e=>!e.name).map(e=>e.raw)])];
+      const issues=$('pasteIssues');issues.replaceChildren();pastePending=true;
+      let mappings=[];unknown.forEach(n=>{let row=document.createElement('div');row.className='d-flex flex-wrap align-items-center gap-2 my-2';let label=document.createElement('span');label.textContent='未辨識：'+n;let select=document.createElement('select');select.className='form-select form-select-sm w-auto';select.add(new Option('選擇正式玩家',''));allData.players.forEach(p=>select.add(new Option(p,p)));let cb=document.createElement('input');cb.type='checkbox';let cl=document.createElement('label');cl.className='small';cl.append(cb,' 永久保存');row.append(label,select,cl);issues.append(row);mappings.push({n,select,cb});});
+      if(unknown.length){let b=document.createElement('button');b.type='button';b.className='btn btn-outline-cyan btn-sm';b.textContent='套用簡稱對照';b.onclick=async()=>{if(mappings.some(x=>!x.select.value)){alert('請選擇所有未知簡稱的對應玩家');return;}b.disabled=true;try{let permanent=mappings.filter(x=>x.cb.checked).map(x=>({name:x.select.value,alias:x.n}));if(permanent.length)aliases=await api('saveAliases',{aliases:[...aliases,...permanent]});mappings.forEach(x=>lookup.set(nameKey(x.n),x.select.value));fillParsed(parseText(raw,$('pasteYear').value,lookup),lookup);}catch(e){alert(e.message);b.disabled=false;}};issues.append(b);}else fillParsed(parsed,lookup);
+    }
+    function fillParsed(p,lookup){let warnings=[...p.warnings],scores=new Map(),listed=new Set();p.listed.forEach(n=>{let name=lookup.get(nameKey(n));if(name){if(listed.has(name))warnings.push('出席名單重複：'+name);listed.add(name);}else warnings.push('未知簡稱：'+n);});p.entries.forEach(e=>{if(!e.name){warnings.push('未知簡稱：'+e.raw);return;}if(scores.has(e.name)){warnings.push('金額重複：'+e.name+'，請核對（暫留第一筆）');return;}scores.set(e.name,e.amount);});if(listed.size){listed.forEach(n=>{if(!scores.has(n))warnings.push('出席但未填金額：'+n);});scores.forEach((v,n)=>{if(!listed.has(n))warnings.push('金額名單多出：'+n);});}
+      $('recordDate').value=p.date;$('recordTypeSelect').value=listed.size||scores.size?'match':'misc';$('recordMatchMisc').value=p.misc;$('recordPureMisc').value=p.misc;$('playerInputsContainer').replaceChildren();[...new Set([...listed,...scores.keys()])].forEach(n=>addPlayerInputRow(n,scores.has(n)?scores.get(n):''));toggleRecordMode();const issues=$('pasteIssues');issues.replaceChildren();let msg=document.createElement('div');msg.className=warnings.length?'text-warning':'text-success';msg.textContent=warnings.length?warnings.join('；'):'辨識完成，請核對日期及金額後送出。';issues.append(msg);pastePending=warnings.length>0;if(pastePending){let b=document.createElement('button');b.className='btn btn-outline-lime btn-sm mt-2';b.type='button';b.textContent='已核對提示，使用下方表單';b.onclick=()=>{pastePending=false;b.disabled=true;b.textContent='已確認提示';};issues.append(b);}updatePreview();}
+    function equivalent(r,d){let a=Object.entries(r.scores).filter(([,v])=>hasScore(v)).sort(),b=d.players.map(p=>[p.name,p.amount]).sort();return r.date===d.date&&Number(r.misc||0)===Number(d.misc||0)&&JSON.stringify(a)===JSON.stringify(b);}
+    async function submitRecord(){if(!isLoggedIn||busy)return;let d;try{d=formData();}catch(e){alert(e.message);return;}let dup=allData.records.some(r=>(!editing||r.id!==editing.id)&&equivalent(r,d));if(dup&&!confirm('同日期、玩家、金額及雜支相同，可能重複登錄。確定繼續？'))return;if(editing&&!confirm('確定更新紀錄 #'+editing.id+'？'))return;await performMutation(editing?'updateRecord':'addRecord',{...d,allowDuplicate:dup,...(editing?{id:editing.id,original:editing}:{})});}
+    async function performMutation(action,data){if(busy)return;busy=true;$('submitBtn').disabled=true;$('deleteRecordBtn').disabled=true;try{await api(action,data);addRecordModal.hide();auditModal.hide();editing=null;let ok=await fetchData();alert(ok?'操作成功，統計已更新':'寫入成功，但資料重新載入失敗。請重新整理，不要重複送出。');}catch(e){alert(e.message+'\n若連線中斷，請先重新整理並核對紀錄，避免重複送出。');}finally{busy=false;$('submitBtn').disabled=false;$('deleteRecordBtn').disabled=false;}}
+    async function deleteCurrent(){if(!isLoggedIn||!editing||busy)return;if(!confirm('確定刪除紀錄 #'+editing.id+'？原始資料將保存在異動紀錄。'))return;if(!confirm('再次確認：刪除後所有統計將重新計算。'))return;await performMutation('deleteRecord',{id:editing.id,original:editing});}
+    async function openAliases(){if(!isLoggedIn)return;try{aliases=await api('getAliases');$('aliasEditor').value=aliases.map(x=>x.name+' = '+x.alias).join('\n');aliasesModal.show();}catch(e){alert(e.message);}}
+    async function saveAliasEditor(btn){btn.disabled=true;try{let items=$('aliasEditor').value.split(/\r?\n/).filter(s=>s.trim()).map(s=>{let i=s.indexOf('=');if(i<1)throw Error('格式錯誤：'+s);return {name:s.slice(0,i).trim(),alias:s.slice(i+1).trim()};});aliases=await api('saveAliases',{aliases:items});aliasesModal.hide();alert('簡稱已儲存');}catch(e){alert(e.message);}finally{btn.disabled=false;}}
+    function auditText(r){if(!r)return '（無紀錄）';return `${r.date}｜備註：${r.memo||'—'}｜雜支：${signed(r.misc)}\n${Object.entries(r.scores).map(([n,v])=>n+'：'+signed(v)).join('、')||'純雜支'}`;}
+    async function openAudit(){if(!isLoggedIn)return;try{let events=await api('getAudit'),latest=new Set();$('auditList').replaceChildren();if(!events.length)$('auditList').textContent='尚無異動紀錄';events.forEach(e=>{let box=document.createElement('div');box.className='border rounded p-2 mb-2';let title=document.createElement('strong');title.textContent=`${({addRecord:'新增',updateRecord:'修改',deleteRecord:'刪除',restoreRecord:'還原'})[e.action]||e.action} #${e.id}｜${e.account}｜${e.time}｜${e.status}`;let before=document.createElement('div'),after=document.createElement('div');before.className='small text-muted mt-1';after.className='small mt-1';before.style.whiteSpace=after.style.whiteSpace='pre-wrap';before.textContent='修改前：'+auditText(e.before);after.textContent='修改後：'+auditText(e.after);box.append(title,before,after);if(e.status==='DONE'&&!latest.has(e.id)&&e.action!=='addRecord'){let b=document.createElement('button');b.className='btn btn-outline-cyan btn-sm mt-2';b.textContent='還原至異動前';b.onclick=()=>{if(confirm('確定還原 #'+e.id+' 至這次異動前？'))performMutation('restoreRecord',{eventId:e.eventId});};box.append(b);}if(e.status==='DONE')latest.add(e.id);$('auditList').append(box);});auditModal.show();}catch(e){alert(e.message);}}
+
+
+    const analysisModal=new bootstrap.Modal($('analysisModal'));
+    function clearAnalysisResults(){if(analysisChart){analysisChart.dispose();analysisChart=null;}$('analysisContent').replaceChildren();$('analysisContent').hidden=true;$('analysisStatus').textContent='';}
+    function clearAnalysisContent(){clearAnalysisResults();$('analysisTitle').textContent='個人戰績分析';}
+    function deactivateAnalysis(){analysisActive=false;analysisPlayer='';analysisRequest++;if(isAnalysisDate(rangeCalendarField))closeRangeCalendar();clearAnalysisContent();}
+    function closeAnalysis(){deactivateAnalysis();if($('analysisModal').classList.contains('show'))analysisModal.hide();}
+    $('analysisModal').addEventListener('hide.bs.modal',deactivateAnalysis);
+    $('analysisModal').addEventListener('shown.bs.modal',()=>{if(!analysisActive||!isSenior()){analysisModal.hide();return;}analysisChart?.resize();});
+    window.addEventListener('resize',()=>analysisChart?.resize());
+    function setAnalysisDates(start,end,preset){$('analysisStartDate').value=start;$('analysisEndDate').value=end;$('analysisPreset').value=preset;syncAnalysisDateButtons();}
+    function markAnalysisCustom(){$('analysisPreset').value='custom';syncAnalysisDateButtons();}
+    function applyAnalysisPreset(){if(!analysisActive||!isSenior())return;const p=$('analysisPreset').value;if(p==='custom')return;if(p==='main'){useMainAnalysisRange();return;}const [start,end]=presetDates(p);setAnalysisDates(start,end,p);return applyAnalysisFilter();}
+    function resetAnalysisFilter(){if(!analysisActive||!isSenior())return;setAnalysisDates('','','all');return applyAnalysisFilter();}
+    function useMainAnalysisRange(){if(!analysisActive||!isSenior())return;setAnalysisDates(filterStart,filterEnd,'main');return applyAnalysisFilter();}
+    function openAnalysis(player){
+      if(!isSenior()||!sortedPlayers.includes(player))return;
+      analysisActive=true;analysisPlayer=player;clearAnalysisContent();$('analysisTitle').textContent=player+'｜個人戰績分析';
+      setAnalysisDates(filterStart,filterEnd,'main');analysisModal.show();return applyAnalysisFilter();
+    }
+    async function applyAnalysisFilter(){
+      if(!analysisActive||!analysisPlayer||!isSenior())return;
+      const start=$('analysisStartDate').value,end=$('analysisEndDate').value;syncAnalysisDateButtons();
+      if(start&&end&&start>end){alert('開始日期不得晚於結束日期');return;}
+      const request=++analysisRequest,session=token,player=analysisPlayer;
+      clearAnalysisResults();$('analysisStatus').textContent='正在載入分析…';
+      try{const data=await api('getPlayerAnalysis',{player,start,end});if(request!==analysisRequest||!analysisActive||!isSenior()||token!==session)return;renderAnalysis(data);}
+      catch(e){if(request===analysisRequest&&analysisActive&&isSenior()&&token===session)$('analysisStatus').textContent='載入失敗：'+e.message;}
+    }
+    function renderAnalysis(d){
+      if(!isSenior())return;
+      const pct=v=>v==null?'—':(100*v).toFixed(1)+'%',money=v=>v==null?'—':formatMoney(Math.round(v*100)/100)+' 元';
+      const scope=d.start||d.end?`${d.start||'不限'} ～ ${d.end||'不限'}`:'全部歷史紀錄';
+      const kpis=[['累計淨輸／贏',money(d.amount)],['出席場次',d.games+' / '+d.totalMatches+' 場'],['勝率',pct(d.rate)],['出席率',pct(d.attendance)],['場均淨輸／贏',money(d.average)],['勝局 / 輸局',d.wins+' / '+d.loses],['單場最大贏錢',money(d.maxWin)],['單場最大輸錢',money(d.maxLose)],['最長連勝',d.maxWinRun+' 場'],['最長連敗',d.maxLoseRun+' 場']];
+      const table=(headers,rows)=>`<div class="table-responsive"><table class="table table-bordered text-center mb-2"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(r=>'<tr>'+r.map(v=>'<td>'+v+'</td>').join('')+'</tr>').join(''):`<tr><td colspan="${headers.length}">此區間無出席紀錄</td></tr>`}</tbody></table></div>`;
+      $('analysisStatus').textContent='';const c=$('analysisContent');c.hidden=false;
+      c.innerHTML=`<p class="small text-muted">統計範圍：${esc(scope)}｜正數＝輸錢，負數＝贏錢，0 元列為勝局；純雜支不計場次。連勝／連敗依本人實際出席場次計算。</p><div class="analysis-kpis">${kpis.map(([k,v])=>`<div class="analysis-kpi"><div class="small text-muted">${k}</div><strong>${v}</strong></div>`).join('')}</div><h6 class="mt-3">個人累計走勢（區間從零開始）</h6><div id="analysisChart"></div><h6 class="mt-3">近期戰績（限目前區間）</h6>${table(['最近場次','實際場次','勝率','累計金額','場均金額'],d.recent.map(r=>['近 '+r.n+' 場',r.games,pct(r.rate),money(r.amount),money(r.average)]))}<h6 class="mt-3">每月戰績</h6>${table(['月份','出席','勝局','輸局','勝率','累計金額','場均金額'],d.months.map(r=>[esc(r.month),r.games,r.wins,r.loses,pct(r.rate),money(r.amount),money(r.average)]))}<h6 class="mt-3">個人歷史紀錄（最新在上）</h6>${table(['歷史局數','日期','單場金額','區間累計'],[...d.history].reverse().map(r=>[r.round,esc(r.date),money(r.amount),money(r.cumulative)]))}`;
+      if(!d.history.length){$('analysisChart').textContent='此區間無出席紀錄';$('analysisChart').style.height='auto';return;}
+      try{analysisChart=echarts.init($('analysisChart'));analysisChart.setOption({animation:false,grid:{left:12,right:20,top:15,bottom:30,containLabel:true},tooltip:{trigger:'axis'},xAxis:{type:'category',data:['起始',...d.history.map(r=>'#'+r.round+' '+r.date)],axisLabel:{color:'#CBD5E1'}},yAxis:{type:'value',axisLabel:{color:'#CBD5E1'},splitLine:{lineStyle:{color:'#334155'}}},series:[{type:'line',data:[0,...d.history.map(r=>r.cumulative)],showSymbol:false,lineStyle:{color:'#00E5FF',width:3}}]});}catch(e){$('analysisChart').textContent='圖表暫時無法顯示，其他數據仍可查看。';}
+    }
+
+</script>
+</body>
+</html>
